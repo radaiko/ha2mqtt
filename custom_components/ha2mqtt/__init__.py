@@ -34,6 +34,7 @@ from .const import (
     DOMAIN,
 )
 from .device_resolver import DeviceResolver
+from .discovery import DiscoveryPublisher
 from .exposure_manager import ExposureManager
 from .mqtt_bridge import MQTTBridge
 from .state_publisher import StatePublisher
@@ -65,6 +66,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     publisher = StatePublisher(bridge, resolver, exposure)
     handler = CommandHandler(hass, resolver, topic_prefix=bridge_config["topic_prefix"])
 
+    # Create discovery publisher if enabled
+    discovery = None
+    if entry.data.get(CONF_DISCOVERY_ENABLED, False):
+        discovery = DiscoveryPublisher(
+            bridge,
+            discovery_prefix=entry.data.get("discovery_prefix", "homeassistant"),
+        )
+
     bridge.set_message_callback(handler.handle_message)
 
     _rebuild_maps(hass, exposure, resolver)
@@ -73,6 +82,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await bridge.start_listening()
 
     await publisher.publish_all_states(hass)
+
+    # Publish discovery if enabled
+    if discovery:
+        await discovery.publish_all(exposure.get_exposed_entities(), hass)
 
     async def _on_state_changed(event: Event) -> None:
         entity_id = event.data.get("entity_id")
@@ -96,6 +109,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "exposure": exposure,
         "publisher": publisher,
         "handler": handler,
+        "discovery": discovery,
         "unsub_state": unsub_state,
         "unsub_device": unsub_device,
         "unsub_entity": unsub_entity,
@@ -112,6 +126,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data["unsub_state"]()
         data["unsub_device"]()
         data["unsub_entity"]()
+        if data.get("discovery"):
+            await data["discovery"].remove_all(
+                data["exposure"].get_exposed_entities()
+            )
         await data["bridge"].disconnect()
 
     _LOGGER.info("HA2MQTT integration unloaded")
