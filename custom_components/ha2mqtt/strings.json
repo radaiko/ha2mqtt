@@ -15,12 +15,18 @@
       },
       "features": {
         "title": "Features",
-        "description": "Configure optional features.",
+        "description": "Configure optional features. If unsure, the defaults work well for most setups.",
         "data": {
           "discovery_enabled": "Enable MQTT Discovery",
           "discovery_prefix": "Discovery Prefix",
           "retain": "Retain Messages",
           "qos": "QoS Level"
+        },
+        "data_description": {
+          "discovery_enabled": "When enabled, publishes auto-discovery messages so other MQTT clients (like a second Home Assistant) can automatically find your devices.",
+          "discovery_prefix": "The MQTT topic prefix used for discovery messages. Only change this if your other MQTT clients expect a different prefix. Default: homeassistant.",
+          "retain": "When enabled, the MQTT broker remembers the last value for each topic. This means new subscribers immediately get the current state instead of waiting for the next change. Recommended: keep enabled.",
+          "qos": "Quality of Service controls message delivery reliability.\n\n0 = At most once (fire and forget) - Fastest, messages may be lost. Best for frequent sensor updates where missing one reading doesn't matter.\n\n1 = At least once (acknowledged) - Messages are guaranteed to arrive but may be delivered more than once. Good balance for most smart home use.\n\n2 = Exactly once (guaranteed) - Slowest but most reliable. Every message arrives exactly once. Only needed for critical actions like door locks.\n\nRecommended: 0 for most setups."
         }
       },
       "integrations": {
