@@ -12,19 +12,21 @@ try:
 except ImportError:
     aiomqtt = None
 
-try:
-    import voluptuous as vol
-    from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
-    from homeassistant.core import callback
-    from homeassistant.data_entry_flow import FlowResult
-except ImportError:
-    # For testing without HA installed
-    ConfigFlow = object
-    OptionsFlow = object
-    ConfigEntry = object
-    FlowResult = dict
-    callback = lambda f: f
-    vol = None
+import voluptuous as vol
+from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
+from homeassistant.core import callback
+from homeassistant.helpers.selector import (
+    BooleanSelector,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
+)
 
 from .const import (
     CONF_BROKER_HOST,
@@ -53,7 +55,9 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def test_mqtt_connection(host: str, port: int, username: str | None, password: str | None, tls: bool) -> bool:
+async def test_mqtt_connection(
+    host: str, port: int, username: str | None, password: str | None, tls: bool
+) -> bool:
     """Test if we can connect to the MQTT broker."""
     try:
         tls_params = ssl.create_default_context() if tls else None
@@ -67,8 +71,47 @@ async def test_mqtt_connection(host: str, port: int, username: str | None, passw
         async with client:
             pass
         return True
-    except (aiomqtt.MqttError, OSError, asyncio.TimeoutError):
+    except Exception:  # noqa: BLE001
         return False
+
+
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_BROKER_HOST, default=DEFAULT_BROKER_HOST): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.TEXT)
+        ),
+        vol.Required(CONF_BROKER_PORT, default=DEFAULT_BROKER_PORT): NumberSelector(
+            NumberSelectorConfig(min=1, max=65535, mode=NumberSelectorMode.BOX)
+        ),
+        vol.Optional(CONF_BROKER_USERNAME, default=""): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.TEXT)
+        ),
+        vol.Optional(CONF_BROKER_PASSWORD, default=""): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+        vol.Optional(CONF_BROKER_TLS, default=DEFAULT_BROKER_TLS): BooleanSelector(),
+        vol.Optional(CONF_TOPIC_PREFIX, default=DEFAULT_TOPIC_PREFIX): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.TEXT)
+        ),
+        vol.Optional(
+            CONF_DISCOVERY_ENABLED, default=DEFAULT_DISCOVERY_ENABLED
+        ): BooleanSelector(),
+        vol.Optional(
+            CONF_DISCOVERY_PREFIX, default=DEFAULT_DISCOVERY_PREFIX
+        ): TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT)),
+        vol.Optional(CONF_RETAIN, default=DEFAULT_RETAIN): BooleanSelector(),
+        vol.Optional(CONF_QOS, default=DEFAULT_QOS): SelectSelector(
+            SelectSelectorConfig(
+                options=[
+                    {"value": "0", "label": "0 – At most once (fire and forget)"},
+                    {"value": "1", "label": "1 – At least once (acknowledged)"},
+                    {"value": "2", "label": "2 – Exactly once (guaranteed)"},
+                ],
+                mode=SelectSelectorMode.DROPDOWN,
+            )
+        ),
+    }
+)
 
 
 class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -77,13 +120,21 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
+        """Initialize the config flow."""
         self._user_config: dict[str, Any] = {}
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Step 1: MQTT broker + feature configuration."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            # SelectSelector returns strings — coerce QoS back to int
+            user_input[CONF_QOS] = int(user_input.get(CONF_QOS, 0))
+            # NumberSelector may return float — coerce port to int
+            user_input[CONF_BROKER_PORT] = int(user_input.get(CONF_BROKER_PORT, DEFAULT_BROKER_PORT))
+
             connected = await test_mqtt_connection(
                 host=user_input[CONF_BROKER_HOST],
                 port=user_input[CONF_BROKER_PORT],
@@ -98,33 +149,22 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
 
             errors["base"] = "cannot_connect"
 
-        schema = vol.Schema(
-            {
-                # Broker settings
-                vol.Required(CONF_BROKER_HOST, default=DEFAULT_BROKER_HOST): str,
-                vol.Required(CONF_BROKER_PORT, default=DEFAULT_BROKER_PORT): int,
-                vol.Optional(CONF_BROKER_USERNAME, default=""): str,
-                vol.Optional(CONF_BROKER_PASSWORD, default=""): str,
-                vol.Optional(CONF_BROKER_TLS, default=DEFAULT_BROKER_TLS): bool,
-                vol.Optional(CONF_TOPIC_PREFIX, default=DEFAULT_TOPIC_PREFIX): str,
-                # Feature settings
-                vol.Optional(CONF_DISCOVERY_ENABLED, default=DEFAULT_DISCOVERY_ENABLED): bool,
-                vol.Optional(CONF_DISCOVERY_PREFIX, default=DEFAULT_DISCOVERY_PREFIX): str,
-                vol.Optional(CONF_RETAIN, default=DEFAULT_RETAIN): bool,
-                vol.Optional(CONF_QOS, default=DEFAULT_QOS): vol.In([0, 1, 2]),
-            }
+        return self.async_show_form(
+            step_id="user",
+            data_schema=STEP_USER_DATA_SCHEMA,
+            errors=errors,
         )
 
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
-
-    async def async_step_integrations(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_integrations(
+        self, user_input: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Step 2: Select integrations to expose."""
         if user_input is not None:
-            # Everything from step 1 goes into data (single schema = no validation issues)
             data = {**self._user_config}
-            # Integrations selection goes into options (user-changeable later)
             options = {
-                CONF_EXPOSED_INTEGRATIONS: user_input.get(CONF_EXPOSED_INTEGRATIONS, []),
+                CONF_EXPOSED_INTEGRATIONS: user_input.get(
+                    CONF_EXPOSED_INTEGRATIONS, []
+                ),
                 CONF_EXCLUDED_DEVICES: [],
             }
             return self.async_create_entry(
@@ -133,25 +173,41 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
                 options=options,
             )
 
-        integrations = set()
+        integrations: set[str] = set()
         if self.hass:
             for entry in self.hass.config_entries.async_entries():
                 integrations.add(entry.domain)
         integration_list = sorted(integrations)
 
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_EXPOSED_INTEGRATIONS): vol.All(
-                    [vol.In(integration_list)] if integration_list else [str]
-                ),
-            }
-        )
+        if integration_list:
+            schema = vol.Schema(
+                {
+                    vol.Required(CONF_EXPOSED_INTEGRATIONS): SelectSelector(
+                        SelectSelectorConfig(
+                            options=integration_list,
+                            multiple=True,
+                            mode=SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                }
+            )
+        else:
+            schema = vol.Schema(
+                {
+                    vol.Required(CONF_EXPOSED_INTEGRATIONS): TextSelector(
+                        TextSelectorConfig(type=TextSelectorType.TEXT)
+                    ),
+                }
+            )
 
         return self.async_show_form(step_id="integrations", data_schema=schema)
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry: ConfigEntry) -> Ha2MqttOptionsFlow:
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> Ha2MqttOptionsFlow:
+        """Get the options flow handler."""
         return Ha2MqttOptionsFlow(config_entry)
 
 
@@ -159,9 +215,13 @@ class Ha2MqttOptionsFlow(OptionsFlow):
     """Handle options flow for HA2MQTT."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
+        """Initialize the options flow."""
         self._config_entry = config_entry
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Handle options flow."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
