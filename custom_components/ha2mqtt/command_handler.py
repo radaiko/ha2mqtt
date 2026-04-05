@@ -26,7 +26,7 @@ class CommandHandler:
             _LOGGER.warning("Could not parse set topic: %s", topic)
             return
 
-        integration, device_class, device_name, entity_key, attribute = parts
+        integration, device_name, device_class, entity_key, attribute = parts
 
         entity_id = self._resolver.get_entity_id(integration, device_class, device_name, entity_key)
         if entity_id is None:

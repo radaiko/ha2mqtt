@@ -43,7 +43,7 @@ class StatePublisher:
         entity_key = parts["entity_key"]
 
         # Publish main state value under the entity_key
-        topic = self._bridge.build_topic(integration, device_class, device_name, entity_key)
+        topic = self._bridge.build_topic(integration, device_name, device_class, entity_key)
         await self._bridge.publish(topic, str(state.state))
 
         # Publish attributes under entity_key/attr_name
@@ -51,7 +51,7 @@ class StatePublisher:
             if attr_name in SKIP_ATTRIBUTES:
                 continue
             attr_topic = self._bridge.build_topic(
-                integration, device_class, device_name, entity_key, attr_name
+                integration, device_name, device_class, entity_key, attr_name
             )
             await self._bridge.publish(attr_topic, self._format_value(attr_value))
 

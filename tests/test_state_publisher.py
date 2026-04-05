@@ -84,11 +84,11 @@ class TestStatePublisher:
 
         calls = mock_bridge.publish.call_args_list
         assert len(calls) == 2
-        # State value: hk/sensor/motion/temperature
-        assert calls[0][0][0] == "hk/sensor/motion/temperature"
+        # State value: hk/motion/sensor/temperature
+        assert calls[0][0][0] == "hk/motion/sensor/temperature"
         assert calls[0][0][1] == "22.5"
-        # Attribute: hk/sensor/motion/temperature/unit_of_measurement
-        assert calls[1][0][0] == "hk/sensor/motion/temperature/unit_of_measurement"
+        # Attribute: hk/motion/sensor/temperature/unit_of_measurement
+        assert calls[1][0][0] == "hk/motion/sensor/temperature/unit_of_measurement"
         assert calls[1][0][1] == "°C"
 
     @pytest.mark.asyncio
@@ -114,7 +114,7 @@ class TestStatePublisher:
         await publisher.publish_state("light.lamp", state)
 
         topics_published = [call[0][0] for call in mock_bridge.publish.call_args_list]
-        assert "hue/light/lamp/state" in topics_published
-        assert "hue/light/lamp/state/brightness" in topics_published
-        assert "hue/light/lamp/state/friendly_name" not in topics_published
-        assert "hue/light/lamp/state/supported_features" not in topics_published
+        assert "hue/lamp/light/state" in topics_published
+        assert "hue/lamp/light/state/brightness" in topics_published
+        assert "hue/lamp/light/state/friendly_name" not in topics_published
+        assert "hue/lamp/light/state/supported_features" not in topics_published
