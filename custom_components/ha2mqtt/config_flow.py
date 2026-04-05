@@ -132,8 +132,11 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_integrations(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Step 3: Select integrations to expose."""
         if user_input is not None:
-            data = {**self._broker_config, **self._features_config}
+            # Only connection info goes in data (HA validates data against step schemas)
+            data = {**self._broker_config}
+            # Features + user preferences go in options (not schema-validated)
             options = {
+                **self._features_config,
                 CONF_EXPOSED_INTEGRATIONS: user_input.get(CONF_EXPOSED_INTEGRATIONS, []),
                 CONF_EXCLUDED_DEVICES: [],
             }
@@ -178,6 +181,22 @@ class Ha2MqttOptionsFlow(OptionsFlow):
         current = self._config_entry.options
         schema = vol.Schema(
             {
+                vol.Optional(
+                    CONF_DISCOVERY_ENABLED,
+                    default=current.get(CONF_DISCOVERY_ENABLED, DEFAULT_DISCOVERY_ENABLED),
+                ): bool,
+                vol.Optional(
+                    CONF_DISCOVERY_PREFIX,
+                    default=current.get(CONF_DISCOVERY_PREFIX, DEFAULT_DISCOVERY_PREFIX),
+                ): str,
+                vol.Optional(
+                    CONF_RETAIN,
+                    default=current.get(CONF_RETAIN, DEFAULT_RETAIN),
+                ): bool,
+                vol.Optional(
+                    CONF_QOS,
+                    default=current.get(CONF_QOS, DEFAULT_QOS),
+                ): vol.In([0, 1, 2]),
                 vol.Required(
                     CONF_EXPOSED_INTEGRATIONS,
                     default=current.get(CONF_EXPOSED_INTEGRATIONS, []),

@@ -46,6 +46,10 @@
       "init": {
         "title": "HA2MQTT Options",
         "data": {
+          "discovery_enabled": "Enable MQTT Discovery",
+          "discovery_prefix": "Discovery Prefix",
+          "retain": "Retain Messages",
+          "qos": "QoS Level",
           "exposed_integrations": "Exposed Integrations",
           "excluded_devices": "Excluded Devices"
         }

@@ -159,3 +159,16 @@ class TestConfigFlow:
         )
 
         assert result["type"] == "create_entry"
+
+        # Verify data contains only broker config (not features)
+        call_kwargs = flow.async_create_entry.call_args[1]
+        assert "discovery_enabled" not in call_kwargs["data"]
+        assert "retain" not in call_kwargs["data"]
+        assert "qos" not in call_kwargs["data"]
+        assert call_kwargs["data"]["broker_host"] == "localhost"
+
+        # Verify options contains features + integrations
+        assert call_kwargs["options"]["discovery_enabled"] is False
+        assert call_kwargs["options"]["retain"] is True
+        assert call_kwargs["options"]["qos"] == 0
+        assert call_kwargs["options"]["exposed_integrations"] == ["hue", "matter"]
