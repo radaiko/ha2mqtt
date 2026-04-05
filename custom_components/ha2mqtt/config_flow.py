@@ -208,15 +208,11 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
         config_entry: ConfigEntry,
     ) -> Ha2MqttOptionsFlow:
         """Get the options flow handler."""
-        return Ha2MqttOptionsFlow(config_entry)
+        return Ha2MqttOptionsFlow()
 
 
 class Ha2MqttOptionsFlow(OptionsFlow):
     """Handle options flow for HA2MQTT."""
-
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        """Initialize the options flow."""
-        self._config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
@@ -225,17 +221,32 @@ class Ha2MqttOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        current = self._config_entry.options
+        current = self.config_entry.options
+
+        # Build dynamic integration list for the selector
+        integrations: set[str] = set()
+        for entry in self.hass.config_entries.async_entries():
+            integrations.add(entry.domain)
+        integration_list = sorted(integrations)
+
         schema = vol.Schema(
             {
                 vol.Required(
                     CONF_EXPOSED_INTEGRATIONS,
                     default=current.get(CONF_EXPOSED_INTEGRATIONS, []),
-                ): list,
+                ): SelectSelector(
+                    SelectSelectorConfig(
+                        options=integration_list,
+                        multiple=True,
+                        mode=SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(
                     CONF_EXCLUDED_DEVICES,
                     default=current.get(CONF_EXCLUDED_DEVICES, []),
-                ): list,
+                ): TextSelector(
+                    TextSelectorConfig(type=TextSelectorType.TEXT)
+                ),
             }
         )
 
