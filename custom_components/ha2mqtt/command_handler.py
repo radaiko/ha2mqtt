@@ -26,11 +26,13 @@ class CommandHandler:
             _LOGGER.warning("Could not parse set topic: %s", topic)
             return
 
-        integration, device_class, device_name, attribute = parts
+        integration, device_class, device_name, entity_key, attribute = parts
 
-        entity_id = self._resolver.get_entity_id(integration, device_class, device_name)
+        entity_id = self._resolver.get_entity_id(integration, device_class, device_name, entity_key)
         if entity_id is None:
-            _LOGGER.warning("No entity found for %s/%s/%s", integration, device_class, device_name)
+            _LOGGER.warning(
+                "No entity found for %s/%s/%s/%s", integration, device_class, device_name, entity_key
+            )
             return
 
         domain = entity_id.split(".")[0]
@@ -47,8 +49,13 @@ class CommandHandler:
 
         await self._call_service(entity_id, domain, attr_map, payload)
 
-    def _parse_topic(self, topic: str) -> tuple[str, str, str, str] | None:
-        """Parse a set topic into (integration, device_class, device_name, attribute)."""
+    def _parse_topic(self, topic: str) -> tuple[str, str, str, str, str] | None:
+        """Parse a set topic into (integration, domain, device, entity_key, attribute).
+
+        Formats:
+          [prefix/]integration/domain/device/entity_key/set          → attribute="state"
+          [prefix/]integration/domain/device/entity_key/attribute/set
+        """
         parts = topic.split("/")
         if not parts or parts[-1] != "set":
             return None
@@ -57,9 +64,13 @@ class CommandHandler:
             prefix_parts = self._topic_prefix.split("/")
             if parts[: len(prefix_parts)] == prefix_parts:
                 parts = parts[len(prefix_parts) :]
-        if len(parts) != 4:
-            return None
-        return parts[0], parts[1], parts[2], parts[3]
+        if len(parts) == 4:
+            # integration/domain/device/entity_key → attribute defaults to "state"
+            return parts[0], parts[1], parts[2], parts[3], "state"
+        if len(parts) == 5:
+            # integration/domain/device/entity_key/attribute
+            return parts[0], parts[1], parts[2], parts[3], parts[4]
+        return None
 
     async def _call_service(self, entity_id: str, domain: str, attr_map: dict, payload: str) -> None:
         """Call the appropriate HA service."""

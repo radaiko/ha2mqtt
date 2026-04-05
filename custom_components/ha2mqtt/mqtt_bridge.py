@@ -49,22 +49,30 @@ class MQTTBridge:
             return f"{self.topic_prefix}/{AVAILABILITY_TOPIC_SUFFIX}"
         return AVAILABILITY_TOPIC_SUFFIX
 
-    def build_topic(self, integration: str, device_class: str, device_name: str, attribute: str) -> str:
-        """Build a state topic path."""
-        parts = [integration, device_class, device_name, attribute]
+    def build_topic(self, *segments: str) -> str:
+        """Build a topic path from variable segments."""
+        parts = list(segments)
         if self.topic_prefix:
             parts.insert(0, self.topic_prefix)
         return "/".join(parts)
 
-    def build_set_topic(self, integration: str, device_class: str, device_name: str, attribute: str) -> str:
+    def build_set_topic(self, *segments: str) -> str:
         """Build a set (command) topic path."""
-        return self.build_topic(integration, device_class, device_name, attribute) + "/set"
+        return self.build_topic(*segments) + "/set"
 
-    def _build_subscribe_pattern(self) -> str:
-        """Build the wildcard subscribe pattern for set topics."""
+    def _build_subscribe_patterns(self) -> list[str]:
+        """Build wildcard subscribe patterns for set topics.
+
+        Two patterns:
+          prefix/integration/domain/device/entity_key/set          (state set)
+          prefix/integration/domain/device/entity_key/attr/set     (attribute set)
+        """
         if self.topic_prefix:
-            return f"{self.topic_prefix}/+/+/+/+/set"
-        return "+/+/+/+/set"
+            return [
+                f"{self.topic_prefix}/+/+/+/+/set",
+                f"{self.topic_prefix}/+/+/+/+/+/set",
+            ]
+        return ["+/+/+/+/set", "+/+/+/+/+/set"]
 
     async def connect(self) -> None:
         """Connect to the MQTT broker with LWT."""
@@ -91,9 +99,9 @@ class MQTTBridge:
         await self.publish(self.availability_topic, PAYLOAD_ONLINE, retain=True)
 
         # Subscribe to set topics
-        pattern = self._build_subscribe_pattern()
-        await self._client.subscribe(pattern, qos=self.qos)
-        _LOGGER.debug("Subscribed to %s", pattern)
+        for pattern in self._build_subscribe_patterns():
+            await self._client.subscribe(pattern, qos=self.qos)
+            _LOGGER.debug("Subscribed to %s", pattern)
 
     async def disconnect(self) -> None:
         """Disconnect from the MQTT broker cleanly."""

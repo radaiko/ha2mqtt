@@ -40,13 +40,20 @@ class StatePublisher:
         integration = parts["integration"]
         device_class = parts["device_class"]
         device_name = parts["device_name"]
-        topic = self._bridge.build_topic(integration, device_class, device_name, "state")
+        entity_key = parts["entity_key"]
+
+        # Publish main state value under the entity_key
+        topic = self._bridge.build_topic(integration, device_class, device_name, entity_key)
         await self._bridge.publish(topic, str(state.state))
+
+        # Publish attributes under entity_key/attr_name
         for attr_name, attr_value in state.attributes.items():
             if attr_name in SKIP_ATTRIBUTES:
                 continue
-            topic = self._bridge.build_topic(integration, device_class, device_name, attr_name)
-            await self._bridge.publish(topic, self._format_value(attr_value))
+            attr_topic = self._bridge.build_topic(
+                integration, device_class, device_name, entity_key, attr_name
+            )
+            await self._bridge.publish(attr_topic, self._format_value(attr_value))
 
     async def publish_all_states(self, hass: Any) -> None:
         """Publish current state of all exposed entities (initial sync)."""

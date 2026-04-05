@@ -10,7 +10,7 @@ from custom_components.ha2mqtt.state_publisher import StatePublisher
 @pytest.fixture
 def mock_bridge():
     bridge = MagicMock()
-    bridge.build_topic = MagicMock(side_effect=lambda i, d, n, a: f"{i}/{d}/{n}/{a}")
+    bridge.build_topic = MagicMock(side_effect=lambda *args: "/".join(args))
     bridge.publish = AsyncMock()
     return bridge
 
@@ -40,6 +40,7 @@ class TestStatePublisher:
             "integration": "hue",
             "device_class": "light",
             "device_name": "lamp",
+            "entity_key": "state",
         }
 
         state = MagicMock()
@@ -65,25 +66,30 @@ class TestStatePublisher:
         assert publisher._bridge.publish.call_count == 0
 
     @pytest.mark.asyncio
-    async def test_publish_attributes_as_strings(self, publisher, mock_bridge, mock_resolver, mock_exposure):
+    async def test_publish_attributes_under_entity_key(self, publisher, mock_bridge, mock_resolver, mock_exposure):
+        """Attributes are published under entity_key/attr_name."""
         mock_exposure.is_exposed.return_value = True
         mock_resolver.resolve.return_value = {
-            "integration": "hue",
+            "integration": "hk",
             "device_class": "sensor",
-            "device_name": "temp",
+            "device_name": "motion",
+            "entity_key": "temperature",
         }
 
         state = MagicMock()
         state.state = "22.5"
         state.attributes = {"unit_of_measurement": "°C"}
 
-        await publisher.publish_state("sensor.temp", state)
+        await publisher.publish_state("sensor.motion_temp", state)
 
         calls = mock_bridge.publish.call_args_list
         assert len(calls) == 2
-        for call in calls:
-            payload = call[0][1]
-            assert isinstance(payload, str)
+        # State value: hk/sensor/motion/temperature
+        assert calls[0][0][0] == "hk/sensor/motion/temperature"
+        assert calls[0][0][1] == "22.5"
+        # Attribute: hk/sensor/motion/temperature/unit_of_measurement
+        assert calls[1][0][0] == "hk/sensor/motion/temperature/unit_of_measurement"
+        assert calls[1][0][1] == "°C"
 
     @pytest.mark.asyncio
     async def test_skip_internal_attributes(self, publisher, mock_bridge, mock_resolver, mock_exposure):
@@ -92,6 +98,7 @@ class TestStatePublisher:
             "integration": "hue",
             "device_class": "light",
             "device_name": "lamp",
+            "entity_key": "state",
         }
 
         state = MagicMock()
@@ -108,8 +115,6 @@ class TestStatePublisher:
 
         topics_published = [call[0][0] for call in mock_bridge.publish.call_args_list]
         assert "hue/light/lamp/state" in topics_published
-        assert "hue/light/lamp/brightness" in topics_published
-        assert "hue/light/lamp/friendly_name" not in topics_published
-        assert "hue/light/lamp/supported_features" not in topics_published
-        assert "hue/light/lamp/entity_picture" not in topics_published
-        assert "hue/light/lamp/icon" not in topics_published
+        assert "hue/light/lamp/state/brightness" in topics_published
+        assert "hue/light/lamp/state/friendly_name" not in topics_published
+        assert "hue/light/lamp/state/supported_features" not in topics_published

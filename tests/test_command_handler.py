@@ -29,6 +29,7 @@ def handler(mock_hass, mock_resolver):
 class TestCommandHandler:
     @pytest.mark.asyncio
     async def test_light_turn_on(self, handler, mock_hass, mock_resolver):
+        # 4-segment: integration/domain/device/entity_key/set → attribute="state"
         mock_resolver.get_entity_id.return_value = "light.lamp"
         await handler.handle_message("homekit/light/lamp/state/set", "on")
         mock_hass.services.async_call.assert_called_once_with(
@@ -45,8 +46,9 @@ class TestCommandHandler:
 
     @pytest.mark.asyncio
     async def test_light_brightness(self, handler, mock_hass, mock_resolver):
+        # 5-segment: integration/domain/device/entity_key/attribute/set
         mock_resolver.get_entity_id.return_value = "light.lamp"
-        await handler.handle_message("homekit/light/lamp/brightness/set", "128")
+        await handler.handle_message("homekit/light/lamp/state/brightness/set", "128")
         mock_hass.services.async_call.assert_called_once_with(
             "light", "turn_on", {"entity_id": "light.lamp", "brightness": 128}
         )
@@ -54,7 +56,7 @@ class TestCommandHandler:
     @pytest.mark.asyncio
     async def test_climate_temperature(self, handler, mock_hass, mock_resolver):
         mock_resolver.get_entity_id.return_value = "climate.thermostat"
-        await handler.handle_message("matter/climate/thermostat/temperature/set", "22.0")
+        await handler.handle_message("matter/climate/thermostat/state/temperature/set", "22.0")
         mock_hass.services.async_call.assert_called_once_with(
             "climate", "set_temperature", {"entity_id": "climate.thermostat", "temperature": 22.0}
         )
@@ -70,7 +72,7 @@ class TestCommandHandler:
     @pytest.mark.asyncio
     async def test_cover_position(self, handler, mock_hass, mock_resolver):
         mock_resolver.get_entity_id.return_value = "cover.blinds"
-        await handler.handle_message("hue/cover/blinds/position/set", "50")
+        await handler.handle_message("hue/cover/blinds/state/position/set", "50")
         mock_hass.services.async_call.assert_called_once_with(
             "cover", "set_cover_position", {"entity_id": "cover.blinds", "position": 50}
         )

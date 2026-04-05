@@ -13,7 +13,7 @@ def mock_bridge():
     bridge = MagicMock()
     bridge.publish = AsyncMock()
     bridge.availability_topic = "ha2mqtt/status"
-    bridge.build_topic = MagicMock(side_effect=lambda i, d, n, a: f"{i}/{d}/{n}/{a}")
+    bridge.build_topic = MagicMock(side_effect=lambda *args: "/".join(args))
     return bridge
 
 

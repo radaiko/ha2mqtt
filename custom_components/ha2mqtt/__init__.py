@@ -34,7 +34,7 @@ from .const import (
     CONF_TOPIC_PREFIX,
     DOMAIN,
 )
-from .device_resolver import DeviceResolver
+from .device_resolver import DeviceResolver, slugify_name
 from .discovery import DiscoveryPublisher
 from .exposure_manager import ExposureManager
 from .mqtt_bridge import MQTTBridge
@@ -169,12 +169,41 @@ def _rebuild_maps(hass: HomeAssistant, exposure: ExposureManager, resolver: Devi
 
     resolver._entity_map.clear()
     resolver._topic_to_entity.clear()
-    resolver._name_counts.clear()
+    resolver._device_slugs.clear()
+    resolver._slug_counts.clear()
 
     for entity_id, info in exposure.get_exposed_entities().items():
+        entity_key = _derive_entity_key(entity_id, info["device_name"])
         resolver.register_entity(
             entity_id=entity_id,
             integration=info["integration"],
             device_name=info["device_name"],
             domain=info["domain"],
+            device_id=info["device_id"],
+            entity_key=entity_key,
         )
+
+
+def _derive_entity_key(entity_id: str, device_name: str) -> str:
+    """Derive a meaningful key for an entity within its device.
+
+    For entity_id 'sensor.living_room_thermostat_temperature' with
+    device_name 'Living Room Thermostat', returns 'temperature'.
+    For entity_id 'switch.living_room_thermostat' (matches device name),
+    returns 'state'.
+    """
+    object_id = entity_id.split(".", 1)[1] if "." in entity_id else entity_id
+    device_slug = slugify_name(device_name)
+
+    # Strip device name prefix to get entity-specific part
+    if object_id.startswith(device_slug + "_"):
+        key = object_id[len(device_slug) + 1:]
+        if key:
+            return key
+
+    # Entity object_id matches device slug exactly → primary entity
+    if object_id == device_slug:
+        return "state"
+
+    # Fallback: use the full object_id
+    return object_id

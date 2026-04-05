@@ -79,5 +79,12 @@ def test_availability_topic_with_prefix():
 
 
 def test_set_topic(bridge):
-    result = bridge.build_set_topic("homekit", "light", "lamp", "brightness")
-    assert result == "homekit/light/lamp/brightness/set"
+    result = bridge.build_set_topic("homekit", "light", "lamp", "state", "brightness")
+    assert result == "homekit/light/lamp/state/brightness/set"
+
+
+def test_build_topic_variable_segments(bridge):
+    # 4 segments (entity state)
+    assert bridge.build_topic("hk", "sensor", "motion", "temperature") == "hk/sensor/motion/temperature"
+    # 5 segments (entity attribute)
+    assert bridge.build_topic("hk", "sensor", "motion", "temperature", "unit") == "hk/sensor/motion/temperature/unit"
