@@ -229,25 +229,21 @@ class Ha2MqttOptionsFlow(OptionsFlow):
             integrations.add(entry.domain)
         integration_list = sorted(integrations)
 
-        schema = vol.Schema(
-            {
-                vol.Required(
-                    CONF_EXPOSED_INTEGRATIONS,
-                    default=current.get(CONF_EXPOSED_INTEGRATIONS, []),
-                ): SelectSelector(
-                    SelectSelectorConfig(
-                        options=integration_list,
-                        multiple=True,
-                        mode=SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                vol.Optional(
-                    CONF_EXCLUDED_DEVICES,
-                    default=current.get(CONF_EXCLUDED_DEVICES, []),
-                ): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.TEXT)
-                ),
-            }
-        )
+        excluded_default = current.get(CONF_EXCLUDED_DEVICES, [])
+
+        schema_fields: dict[Any, Any] = {
+            vol.Required(
+                CONF_EXPOSED_INTEGRATIONS,
+                default=current.get(CONF_EXPOSED_INTEGRATIONS, []),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=integration_list,
+                    multiple=True,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+
+        schema = vol.Schema(schema_fields)
 
         return self.async_show_form(step_id="init", data_schema=schema)
