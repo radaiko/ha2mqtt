@@ -15,6 +15,7 @@ except ImportError:
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, OptionsFlow, ConfigEntry
 from homeassistant.core import callback
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.selector import (
     BooleanSelector,
     NumberSelector,
@@ -177,28 +178,15 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
         if self.hass:
             for entry in self.hass.config_entries.async_entries():
                 integrations.add(entry.domain)
-        integration_list = sorted(integrations)
+        integration_options = {domain: domain for domain in sorted(integrations)}
 
-        if integration_list:
-            schema = vol.Schema(
-                {
-                    vol.Required(CONF_EXPOSED_INTEGRATIONS): SelectSelector(
-                        SelectSelectorConfig(
-                            options=integration_list,
-                            multiple=True,
-                            mode=SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                }
-            )
-        else:
-            schema = vol.Schema(
-                {
-                    vol.Required(CONF_EXPOSED_INTEGRATIONS): TextSelector(
-                        TextSelectorConfig(type=TextSelectorType.TEXT)
-                    ),
-                }
-            )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_EXPOSED_INTEGRATIONS): cv.multi_select(
+                    integration_options
+                ),
+            }
+        )
 
         return self.async_show_form(step_id="integrations", data_schema=schema)
 
@@ -223,27 +211,19 @@ class Ha2MqttOptionsFlow(OptionsFlow):
 
         current = self.config_entry.options
 
-        # Build dynamic integration list for the selector
+        # Build dynamic integration list for cv.multi_select
         integrations: set[str] = set()
         for entry in self.hass.config_entries.async_entries():
             integrations.add(entry.domain)
-        integration_list = sorted(integrations)
+        integration_options = {domain: domain for domain in sorted(integrations)}
 
-        excluded_default = current.get(CONF_EXCLUDED_DEVICES, [])
-
-        schema_fields: dict[Any, Any] = {
-            vol.Required(
-                CONF_EXPOSED_INTEGRATIONS,
-                default=current.get(CONF_EXPOSED_INTEGRATIONS, []),
-            ): SelectSelector(
-                SelectSelectorConfig(
-                    options=integration_list,
-                    multiple=True,
-                    mode=SelectSelectorMode.DROPDOWN,
-                )
-            ),
-        }
-
-        schema = vol.Schema(schema_fields)
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_EXPOSED_INTEGRATIONS,
+                    default=current.get(CONF_EXPOSED_INTEGRATIONS, []),
+                ): cv.multi_select(integration_options),
+            }
+        )
 
         return self.async_show_form(step_id="init", data_schema=schema)
