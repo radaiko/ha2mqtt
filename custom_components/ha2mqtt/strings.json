@@ -1,0 +1,49 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "MQTT Broker",
+        "description": "Configure the MQTT broker connection.",
+        "data": {
+          "broker_host": "Host",
+          "broker_port": "Port",
+          "broker_username": "Username",
+          "broker_password": "Password",
+          "broker_tls": "Use TLS",
+          "topic_prefix": "Topic Prefix"
+        }
+      },
+      "features": {
+        "title": "Features",
+        "description": "Configure optional features.",
+        "data": {
+          "discovery_enabled": "Enable MQTT Discovery",
+          "discovery_prefix": "Discovery Prefix",
+          "retain": "Retain Messages",
+          "qos": "QoS Level"
+        }
+      },
+      "integrations": {
+        "title": "Integrations",
+        "description": "Select which integrations to expose via MQTT.",
+        "data": {
+          "exposed_integrations": "Integrations"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to MQTT broker. Check host, port, and credentials."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "HA2MQTT Options",
+        "data": {
+          "exposed_integrations": "Exposed Integrations",
+          "excluded_devices": "Excluded Devices"
+        }
+      }
+    }
+  }
+}
