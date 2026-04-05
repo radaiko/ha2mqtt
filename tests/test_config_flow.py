@@ -45,7 +45,7 @@ from custom_components.ha2mqtt.const import DOMAIN
 
 class TestConfigFlow:
     @pytest.mark.asyncio
-    async def test_step_user_shows_broker_form(self):
+    async def test_step_user_shows_form(self):
         flow = Ha2MqttConfigFlow()
         flow.hass = MagicMock()
         flow.hass.config_entries = MagicMock()
@@ -58,12 +58,12 @@ class TestConfigFlow:
         assert result["step_id"] == "user"
 
     @pytest.mark.asyncio
-    async def test_step_user_with_valid_broker(self):
+    async def test_step_user_valid_broker_advances_to_integrations(self):
         flow = Ha2MqttConfigFlow()
         flow.hass = MagicMock()
         flow.hass.config_entries = MagicMock()
         flow.hass.config_entries.async_entries.return_value = []
-        flow.async_show_form = MagicMock(return_value={"type": "form", "step_id": "features"})
+        flow.async_show_form = MagicMock(return_value={"type": "form", "step_id": "integrations"})
 
         with patch(
             "custom_components.ha2mqtt.config_flow.test_mqtt_connection",
@@ -78,14 +78,18 @@ class TestConfigFlow:
                     "broker_password": "",
                     "broker_tls": False,
                     "topic_prefix": "",
+                    "discovery_enabled": False,
+                    "discovery_prefix": "homeassistant",
+                    "retain": True,
+                    "qos": 0,
                 }
             )
 
         assert result["type"] == "form"
-        assert result["step_id"] == "features"
+        assert result["step_id"] == "integrations"
 
     @pytest.mark.asyncio
-    async def test_step_user_with_invalid_broker(self):
+    async def test_step_user_invalid_broker_shows_error(self):
         flow = Ha2MqttConfigFlow()
         flow.hass = MagicMock()
         flow.hass.config_entries = MagicMock()
@@ -105,47 +109,29 @@ class TestConfigFlow:
                     "broker_password": "",
                     "broker_tls": False,
                     "topic_prefix": "",
+                    "discovery_enabled": False,
+                    "discovery_prefix": "homeassistant",
+                    "retain": True,
+                    "qos": 0,
                 }
             )
 
         assert result["type"] == "form"
-        # The flow calls async_show_form with errors, check that was called correctly
         flow.async_show_form.assert_called_once()
         call_kwargs = flow.async_show_form.call_args
         assert call_kwargs[1]["errors"]["base"] == "cannot_connect" or call_kwargs.kwargs["errors"]["base"] == "cannot_connect"
 
     @pytest.mark.asyncio
-    async def test_step_features_advances_to_integrations(self):
-        flow = Ha2MqttConfigFlow()
-        flow.hass = MagicMock()
-        flow._broker_config = {"broker_host": "localhost", "broker_port": 1883}
-        flow.async_show_form = MagicMock(return_value={"type": "form", "step_id": "integrations"})
-
-        result = await flow.async_step_features(
-            user_input={
-                "discovery_enabled": False,
-                "discovery_prefix": "homeassistant",
-                "retain": True,
-                "qos": 0,
-            }
-        )
-
-        assert result["type"] == "form"
-        assert result["step_id"] == "integrations"
-
-    @pytest.mark.asyncio
     async def test_step_integrations_creates_entry(self):
         flow = Ha2MqttConfigFlow()
         flow.hass = MagicMock()
-        flow._broker_config = {
+        flow._user_config = {
             "broker_host": "localhost",
             "broker_port": 1883,
             "broker_username": "",
             "broker_password": "",
             "broker_tls": False,
             "topic_prefix": "",
-        }
-        flow._features_config = {
             "discovery_enabled": False,
             "discovery_prefix": "homeassistant",
             "retain": True,
@@ -160,15 +146,26 @@ class TestConfigFlow:
 
         assert result["type"] == "create_entry"
 
-        # Verify data contains only broker config (not features)
+        # Verify data contains all config from step 1 (broker + features)
         call_kwargs = flow.async_create_entry.call_args[1]
-        assert "discovery_enabled" not in call_kwargs["data"]
-        assert "retain" not in call_kwargs["data"]
-        assert "qos" not in call_kwargs["data"]
         assert call_kwargs["data"]["broker_host"] == "localhost"
+        assert call_kwargs["data"]["discovery_enabled"] is False
+        assert call_kwargs["data"]["retain"] is True
+        assert call_kwargs["data"]["qos"] == 0
 
-        # Verify options contains features + integrations
-        assert call_kwargs["options"]["discovery_enabled"] is False
-        assert call_kwargs["options"]["retain"] is True
-        assert call_kwargs["options"]["qos"] == 0
+        # Verify options contains integrations selection
         assert call_kwargs["options"]["exposed_integrations"] == ["hue", "matter"]
+        assert "discovery_enabled" not in call_kwargs["options"]
+
+    @pytest.mark.asyncio
+    async def test_step_integrations_shows_form(self):
+        flow = Ha2MqttConfigFlow()
+        flow.hass = MagicMock()
+        flow.hass.config_entries = MagicMock()
+        flow.hass.config_entries.async_entries.return_value = []
+        flow.async_show_form = MagicMock(return_value={"type": "form", "step_id": "integrations"})
+
+        result = await flow.async_step_integrations(user_input=None)
+
+        assert result["type"] == "form"
+        assert result["step_id"] == "integrations"

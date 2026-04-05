@@ -2,21 +2,15 @@
   "config": {
     "step": {
       "user": {
-        "title": "MQTT Broker",
-        "description": "Configure the MQTT broker connection.",
+        "title": "MQTT Broker & Features",
+        "description": "Configure the MQTT broker connection and optional features. If unsure about features, the defaults work well for most setups.",
         "data": {
           "broker_host": "Host",
           "broker_port": "Port",
           "broker_username": "Username",
           "broker_password": "Password",
           "broker_tls": "Use TLS",
-          "topic_prefix": "Topic Prefix"
-        }
-      },
-      "features": {
-        "title": "Features",
-        "description": "Configure optional features. If unsure, the defaults work well for most setups.",
-        "data": {
+          "topic_prefix": "Topic Prefix",
           "discovery_enabled": "Enable MQTT Discovery",
           "discovery_prefix": "Discovery Prefix",
           "retain": "Retain Messages",
@@ -46,10 +40,6 @@
       "init": {
         "title": "HA2MQTT Options",
         "data": {
-          "discovery_enabled": "Enable MQTT Discovery",
-          "discovery_prefix": "Discovery Prefix",
-          "retain": "Retain Messages",
-          "qos": "QoS Level",
           "exposed_integrations": "Exposed Integrations",
           "excluded_devices": "Excluded Devices"
         }

@@ -40,12 +40,12 @@ def mock_entry():
         "broker_password": "",
         "broker_tls": False,
         "topic_prefix": "",
-    }
-    entry.options = {
         "discovery_enabled": False,
         "discovery_prefix": "homeassistant",
         "retain": True,
         "qos": 0,
+    }
+    entry.options = {
         "exposed_integrations": ["hue"],
         "excluded_devices": [],
     }

@@ -77,11 +77,10 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
-        self._broker_config: dict[str, Any] = {}
-        self._features_config: dict[str, Any] = {}
+        self._user_config: dict[str, Any] = {}
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Step 1: MQTT broker configuration."""
+        """Step 1: MQTT broker + feature configuration."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
@@ -94,32 +93,21 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
             if connected:
-                self._broker_config = user_input
-                return await self.async_step_features()
+                self._user_config = user_input
+                return await self.async_step_integrations()
 
             errors["base"] = "cannot_connect"
 
         schema = vol.Schema(
             {
+                # Broker settings
                 vol.Required(CONF_BROKER_HOST, default=DEFAULT_BROKER_HOST): str,
                 vol.Required(CONF_BROKER_PORT, default=DEFAULT_BROKER_PORT): int,
                 vol.Optional(CONF_BROKER_USERNAME, default=""): str,
                 vol.Optional(CONF_BROKER_PASSWORD, default=""): str,
                 vol.Optional(CONF_BROKER_TLS, default=DEFAULT_BROKER_TLS): bool,
                 vol.Optional(CONF_TOPIC_PREFIX, default=DEFAULT_TOPIC_PREFIX): str,
-            }
-        )
-
-        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
-
-    async def async_step_features(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Step 2: Feature toggles."""
-        if user_input is not None:
-            self._features_config = user_input
-            return await self.async_step_integrations()
-
-        schema = vol.Schema(
-            {
+                # Feature settings
                 vol.Optional(CONF_DISCOVERY_ENABLED, default=DEFAULT_DISCOVERY_ENABLED): bool,
                 vol.Optional(CONF_DISCOVERY_PREFIX, default=DEFAULT_DISCOVERY_PREFIX): str,
                 vol.Optional(CONF_RETAIN, default=DEFAULT_RETAIN): bool,
@@ -127,16 +115,15 @@ class Ha2MqttConfigFlow(ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(step_id="features", data_schema=schema)
+        return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
     async def async_step_integrations(self, user_input: dict[str, Any] | None = None) -> FlowResult:
-        """Step 3: Select integrations to expose."""
+        """Step 2: Select integrations to expose."""
         if user_input is not None:
-            # Only connection info goes in data (HA validates data against step schemas)
-            data = {**self._broker_config}
-            # Features + user preferences go in options (not schema-validated)
+            # Everything from step 1 goes into data (single schema = no validation issues)
+            data = {**self._user_config}
+            # Integrations selection goes into options (user-changeable later)
             options = {
-                **self._features_config,
                 CONF_EXPOSED_INTEGRATIONS: user_input.get(CONF_EXPOSED_INTEGRATIONS, []),
                 CONF_EXCLUDED_DEVICES: [],
             }
@@ -181,22 +168,6 @@ class Ha2MqttOptionsFlow(OptionsFlow):
         current = self._config_entry.options
         schema = vol.Schema(
             {
-                vol.Optional(
-                    CONF_DISCOVERY_ENABLED,
-                    default=current.get(CONF_DISCOVERY_ENABLED, DEFAULT_DISCOVERY_ENABLED),
-                ): bool,
-                vol.Optional(
-                    CONF_DISCOVERY_PREFIX,
-                    default=current.get(CONF_DISCOVERY_PREFIX, DEFAULT_DISCOVERY_PREFIX),
-                ): str,
-                vol.Optional(
-                    CONF_RETAIN,
-                    default=current.get(CONF_RETAIN, DEFAULT_RETAIN),
-                ): bool,
-                vol.Optional(
-                    CONF_QOS,
-                    default=current.get(CONF_QOS, DEFAULT_QOS),
-                ): vol.In([0, 1, 2]),
                 vol.Required(
                     CONF_EXPOSED_INTEGRATIONS,
                     default=current.get(CONF_EXPOSED_INTEGRATIONS, []),

@@ -54,8 +54,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "password": entry.data.get(CONF_BROKER_PASSWORD) or None,
         "tls": entry.data.get(CONF_BROKER_TLS, False),
         "topic_prefix": entry.data.get(CONF_TOPIC_PREFIX, ""),
-        "retain": entry.options.get(CONF_RETAIN, True),
-        "qos": entry.options.get(CONF_QOS, 0),
+        "retain": entry.data.get(CONF_RETAIN, True),
+        "qos": entry.data.get(CONF_QOS, 0),
     }
 
     bridge = MQTTBridge(bridge_config)
@@ -69,10 +69,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Create discovery publisher if enabled
     discovery = None
-    if entry.options.get(CONF_DISCOVERY_ENABLED, False):
+    if entry.data.get(CONF_DISCOVERY_ENABLED, False):
         discovery = DiscoveryPublisher(
             bridge,
-            discovery_prefix=entry.options.get(CONF_DISCOVERY_PREFIX, "homeassistant"),
+            discovery_prefix=entry.data.get(CONF_DISCOVERY_PREFIX, "homeassistant"),
         )
 
     bridge.set_message_callback(handler.handle_message)
